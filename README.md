@@ -1,4 +1,53 @@
-# "laberinto"
+# Juego de Laberinto en Ensamblador (8086 Assembly)
+
+Juego interactivo de laberinto desarrollado en lenguaje ensamblador **x8086** para entornos MS-DOS / 16-bits. El juego se ejecuta en modo texto y hace uso directo de las interrupciones del BIOS (`INT 10h` para renderizado e impresiones en pantalla y `INT 16h` para la lectura de teclado).
+
+---
+
+## 🎮 Características
+
+* **Mapa Matricial 20x10:** Definido directamente en memoria con colisiones de paredes y punto de victoria.
+* **Gráficos en Modo Texto BIOS:**
+  * **Jugador:** Cuadradito amarillo (`0FEh` / `0Eh`).
+  * **Paredes:** Azul claro (`09h`).
+  * **Meta (E):** Cuadradito verde (`0Ah`).
+* **Soporte de Controles Completo:** Permite movimiento con las teclas `W`, `A`, `S`, `D` (mayúsculas o minúsculas) y las **flechas direccionales**.
+* **Efectos de Sonido (Beep del altavoz):**
+  * 1 *beep* al colisionar contra una pared.
+  * 3 *beeps* consecutivos al alcanzar la salida.
+
+---
+
+## ⌨️ Tabla de Controles
+
+| Acción | Tecla ASCII | Flechas / Scan Code |
+| :--- | :--- | :--- |
+| **Arriba** | `W` / `w` | Flecha Arriba (`48h`) |
+| **Abajo** | `S` / `s` | Flecha Abajo (`50h`) |
+| **Izquierda** | `A` / `a` | Flecha Izquierda (`4Bh`) |
+| **Derecha** | `D` / `d` | Flecha Derecha (`4Dh`) |
+| **Salir** | `ESC` (`27`) | — |
+
+---
+
+## 🚀 Requisitos y Ejecución
+
+### Opción 1: EMU8086 (Recomendado)
+1. Abre el programa **EMU8086**.
+2. Copia el código fuente del archivo `laberinto.asm` en el editor.
+3. Presiona el botón **Compile & Emulate**.
+4. En la ventana del emulador, presiona **Run**.
+
+### Opción 2: DOSBox + TASM / MASM
+1. Ensambla el código como ejecutable de tipo `.COM` (debido al encabezado `ORG 100h`).
+2. Ejcuta el binario `.COM` generado dentro de DOSBox.
+
+---
+
+## 📜 Código Fuente (`laberinto.asm`)
+
+```assembly
+name "laberinto"
 org 100h
 
 jmp start
@@ -26,7 +75,7 @@ start:
     mov ax, 0003h
     int 10h
 
-    ; Ocultar cursor del sistema
+    ; Ocultar cursor
     mov ah, 01h
     mov cx, 2607h
     int 10h
@@ -38,9 +87,9 @@ game_loop:
     mov dl, p_x
     mov dh, p_y
     call move_cursor
-    mov al, 0FEh         ; Carácter de bloque/cuadradito
+    mov al, 0FEh         ; cuadradito
     mov ah, 09h
-    mov bl, 0Eh          ; Amarillo brillante
+    mov bl, 0Eh          ; amarillo
     mov bh, 0
     mov cx, 1
     int 10h
@@ -48,17 +97,15 @@ game_loop:
     ; Leer teclado
     mov ah, 00h
     int 16h
-    mov bl, al           ; AL = Código ASCII
-    mov bh, ah           ; AH = Scan Code
+    mov bl, al
+    mov bh, ah
 
     mov cl, p_x
     mov ch, p_y
 
-    ; Tecla ESC para salir
     cmp bl, 27
     je exit
 
-    ; Controles Arriba
     cmp bl, 'w'
     je move_up
     cmp bl, 'W'
@@ -66,7 +113,6 @@ game_loop:
     cmp bh, 48h
     je move_up
 
-    ; Controles Abajo
     cmp bl, 's'
     je move_down
     cmp bl, 'S'
@@ -74,7 +120,6 @@ game_loop:
     cmp bh, 50h
     je move_down
 
-    ; Controles Izquierda
     cmp bl, 'a'
     je move_left
     cmp bl, 'A'
@@ -82,7 +127,6 @@ game_loop:
     cmp bh, 4Bh
     je move_left
 
-    ; Controles Derecha
     cmp bl, 'd'
     je move_right
     cmp bl, 'D'
@@ -105,7 +149,7 @@ move_right:
     inc cl
 
 check_col:
-    ; Offset en memoria = Y * 20 + X
+    ; Offset = Y*20 + X
     mov al, ch
     mov dl, 20
     mul dl
@@ -121,7 +165,7 @@ check_col:
     cmp al, 'E'
     je win
 
-    ; Borrar posición anterior dibujando un espacio
+    ; Borrar posición anterior
     mov dl, p_x
     mov dh, p_y
     call move_cursor
@@ -158,7 +202,7 @@ print_win_loop:
     cmp al, '$'
     je exit
     mov ah, 09h
-    mov bl, 0Ah          ; Verde brillante
+    mov bl, 0Ah          ; verde
     mov bh, 0
     mov cx, 1
     int 10h
@@ -171,7 +215,7 @@ exit:
     mov ax, 4C00h
     int 21h
 
-; --- RUTINAS DE VIDEO ---
+; --- VIDEO ---
 move_cursor:
     push ax
     push bx
@@ -199,14 +243,13 @@ draw_loop:
     mov bl, 07h
     cmp al, '#'
     jne check_exit_color
-    mov bl, 09h          ; Pared azul claro
+    mov bl, 09h          ; pared azul claro
     jmp print_map_char
-
 check_exit_color:
     cmp al, 'E'
     jne print_map_char
-    mov bl, 0Ah          ; Salida verde
-    mov al, 0FEh         ; Cuadradito para la salida
+    mov bl, 0Ah          ; salida verde
+    mov al, 0FEh         ; cuadradito en vez de 'E'
 
 print_map_char:
     mov ah, 09h
@@ -219,18 +262,18 @@ print_map_char:
 draw_done:
     ret
 
-; --- RUTINAS DE SONIDO ---
+; --- SONIDO ---
 sound_step:
     ret
 
-sound_wall:
+sound_wall:              ; 1 beep al chocar
     cmp sound_on, 0
     je snd_end2
     call beep
 snd_end2:
     ret
 
-sound_win:
+sound_win:               ; 3 beeps al ganar
     cmp sound_on, 0
     je snd_end3
     call beep
@@ -242,10 +285,18 @@ snd_end3:
 beep:
     push ax
     push bx
-    mov ax, 0E07h        ; AH=0Eh teletipo, AL=07h carácter de campana (ASCII 7)
+    mov ax, 0E07h        ; AH=0Eh teletipo, AL=07h campana
     mov bh, 0
     int 10h
     pop bx
     pop ax
     ret
-Desarrollado en Ensamblador 8086.
+```
+
+---
+
+## 🛠️ Explicación de la Lógica
+
+1. **Cálculo de Colisiones (`check_col`):** La posición actual del jugador $(X, Y)$ se traduce a un offset lineal dentro del arreglo del mapa mediante la fórmula $\text{Offset} = (Y \times 20) + X$.
+2. **Impresión de Pantalla:** Se utiliza la interrupción `INT 10h, AH=09h` para escribir caracteres junto a sus atributos de color específicos (atributos de texto de 4 bits para color de fuente y fondo).
+3. **Manejo de Teclas:** `INT 16h, AH=00h` devuelve el código ASCII en `AL` y el Scan Code del teclado en `AH`, permitiendo soportar tanto letras como las flechas direccionales.
